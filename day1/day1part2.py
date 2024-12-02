@@ -1,6 +1,7 @@
+from collections import Counter
 import re
 
-first, second = list(), list()
+first, second = Counter(), Counter()
 pattern = re.compile(r"(\d+)\s+(\d+)")
 
 with open("day1/data.txt", "r") as f:
@@ -8,10 +9,11 @@ with open("day1/data.txt", "r") as f:
         m = re.match(pattern, line.strip())
         if not m: continue
         a, b = m.group(1), m.group(2)
-        first.append(int(a))
-        second.append(int(b))
+        first.update([(int(a))])
+        second.update([(int(b))])
 
-first.sort()
-second.sort()
+total = 0
+for num in first:
+    total += num * second[num]
 
-print(f"Result: {sum(abs(int(d[0])-int(d[1])) for d in zip(first, second))}")
+print(f"Result: {total}")

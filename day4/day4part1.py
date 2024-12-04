@@ -14,7 +14,6 @@ def inbounds(line, char):
 total = 0
 for l, line in enumerate(lines):
     for c, char in enumerate(line):
-        print(l, c)
         # starting position
         if char != word[0]: continue #short circuit from X
         for direction in directions:
@@ -30,6 +29,6 @@ for l, line in enumerate(lines):
             if valid: 
                 total += 1
 
-print(f"{total=}")
+print(f"{total= }")
 
 

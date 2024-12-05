@@ -19,12 +19,15 @@ for line in raw_rules:
 class SortWrapper:
     rules = rules
     
-    def __init__(self, s):
+    def __init__(self, s: str):
         self.s = s
         
 
     def __lt__(self, other):
         return other.s in self.rules[self.s]
+
+    def __int__(self) -> int:
+        return int(self.s)
 
 total = 0
 for update in updates:
@@ -36,7 +39,7 @@ for update in updates:
                 break
         if not valid: break
     if not valid:
-        update = [int(u.s) for u in sorted([SortWrapper(s) for s in update])]
+        update = [int(u) for u in sorted([SortWrapper(s) for s in update])]
         total += update[int((len(update)-1)/2)]
 
 print(f"{total= }")

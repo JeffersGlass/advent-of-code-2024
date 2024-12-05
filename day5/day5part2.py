@@ -15,6 +15,15 @@ for line in raw_rules:
     m = re.match(rules_pattern, line.strip())
     rules[m.group(1)].add(m.group(2))
 
+
+class SortWrapper:
+    def __init__(self, s, rules):
+        self.s = s
+        self.rules = rules
+
+    def __lt__(self, other):
+        return other.s in self.rules[self.s]
+
 total = 0
 for update in updates:
     valid = True
@@ -24,8 +33,9 @@ for update in updates:
                 valid = False
                 break
         if not valid: break
-    if valid:
-        total += int(update[int((len(update)-1)/2)])
+    if not valid:
+        update = sorted([SortWrapper(s, rules) for s in update])
+        total += int(update[int((len(update)-1)/2)].s)
 
 print(f"{total= }")
 

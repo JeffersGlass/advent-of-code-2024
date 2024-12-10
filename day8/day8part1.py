@@ -1,11 +1,14 @@
 from collections import defaultdict
 import itertools
 
+VISUALIZE = True
+
+if VISUALIZE:
+    import rich
+
 type Position = tuple[int, int]
 
-_ = defaultdict()
-
-def load_data(raw: list[str]) -> tuple[dict[Position: set], Position, int, int]:
+def load_data(raw: list[str]) -> tuple[dict[str, set[Position]], int, int]:
     antennas: dict[str, set[Position]] = defaultdict(set)
     for l, line in enumerate(raw):
         for c, char in enumerate(line.strip()):
@@ -28,13 +31,27 @@ def calc_antinodes(antenna_set: set[Position], max_line, max_char) -> set[Positi
                 results.add(pos)
     return results
 
+def vis(locations: set[Position], res: set[Position], name: str, max_line:int , max_char:int):
+    for line in range(max_line):
+        for char in range(max_char):
+            if (line, char) in locations:
+                print(name, end = "")
+            else:
+                print(".", end = "")
+        print("")
+
 if __name__ == "__main__":
     with open("day8/data.txt", "r") as f:
         antennas, num_lines, num_chars = load_data(f.readlines())
 
     results = set()
-    for locations in antennas.values():
-        results |= calc_antinodes(locations, num_lines, num_chars) 
+    print(f"{num_lines=}, {num_chars=}")
+    for name, locations in sorted(antennas.items()):
+        res = calc_antinodes(locations, num_lines, num_chars)
+        print(f"Antenna {name} has antinodes at {res}")
+        vis(locations, res, name, num_lines, num_chars)
+        input()
+        results |=  res
 
     print(f"{len(results)= }")
 

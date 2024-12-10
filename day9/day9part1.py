@@ -21,10 +21,13 @@ def load_data(raw: str) -> list[int]:
         
     return data
 
-def compactify_data(data: list[int]) -> list[int]:
+def compactify_data(original_data: list[int]) -> list[int]:
+    data = [d for d in original_data]
     p1 = 0
     p2 = len(data) - 1
 
+    # Start with a pointer at either end, walk the pointers toward each other, swapping empty
+    # blocks in the middle with filled blocks at the end as long as possible
     while p2 >= p1:
         while data[p1] != -1:
             p1 += 1
@@ -46,8 +49,6 @@ def print_data(data: list[int]):
                 print(f"{num}", end = "")
         else: print(".", end = "")
     print("")
-
-
 
 if __name__ == "__main__":
     with open("day9/data.txt", "r") as f:

@@ -20,6 +20,7 @@ def inbound(l, c, max_line, max_chars):
 
 def calc_antinodes(antenna_set: set[Position], max_line, max_char) -> set[Position]:
     results = set()
+    # TODO maybe try this with itertools.permutations and one diff instead of combinations and two?
     for first, second in itertools.combinations(antenna_set, 2):
         diff = (second[0] - first[0], second[1] - first[1])
         options = (

@@ -16,7 +16,7 @@ def load_data(raw: str) -> list[int]:
             block_num += 1
             state = LOAD_STATE.BLANK
         else:
-           data.extend([-1] * num)
+           data.extend([-1] * num) # -1 denotes an empty block
            state = LOAD_STATE.FILE
         
     return data

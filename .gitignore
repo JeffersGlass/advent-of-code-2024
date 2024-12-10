@@ -164,3 +164,4 @@ cython_debug/
 ## Inputs
 data*.txt
 test*
+*definition*

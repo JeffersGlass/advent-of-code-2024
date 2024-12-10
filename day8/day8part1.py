@@ -1,10 +1,10 @@
 from collections import defaultdict
 import itertools
 
-VISUALIZE = True
+VISUALIZE = False
 
 if VISUALIZE:
-    import rich
+    from rich import print
 
 type Position = tuple[int, int]
 
@@ -33,12 +33,19 @@ def calc_antinodes(antenna_set: set[Position], max_line, max_char) -> set[Positi
     return results
 
 def vis(locations: set[Position], res: set[Position], name: str, max_line:int , max_char:int):
+    if not VISUALIZE: return
     for line in range(max_line):
         for char in range(max_char):
             if (line, char) in locations:
-                print(name, end = "")
+                if (line, char) in res:
+                    print(f"[green]{name}[/green]", end = "")
+                else:
+                    print(name, end = "")
             else:
-                print(".", end = "")
+                if (line, char) in res:
+                    print(f"[green]#[/green]", end = "")
+                else:
+                    print(".", end = "")
         print("")
 
 if __name__ == "__main__":
@@ -49,9 +56,10 @@ if __name__ == "__main__":
     print(f"{num_lines=}, {num_chars=}")
     for name, locations in sorted(antennas.items()):
         res = calc_antinodes(locations, num_lines, num_chars)
-        print(f"Antenna {name} has antinodes at {res}")
-        vis(locations, res, name, num_lines, num_chars)
-        input()
+        if VISUALIZE:
+            print(f"Antenna {name} has antennas at {sorted(locations)}\n and {len(res)} antinodes at {sorted(res)}")
+            vis(locations, res, name, num_lines, num_chars)
+            input()
         results |=  res
 
     print(f"{len(results)= }")

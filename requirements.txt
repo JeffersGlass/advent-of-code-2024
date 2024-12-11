@@ -1,1 +1,13 @@
 colored==2.2.4
+linkify-it-py==2.0.3
+markdown-it-py==3.0.0
+mdit-py-plugins==0.4.2
+mdurl==0.1.2
+mypy==1.13.0
+mypy-extensions==1.0.0
+platformdirs==4.3.6
+Pygments==2.18.0
+rich==13.9.4
+textual==0.89.1
+typing_extensions==4.12.2
+uc-micro-py==1.0.3

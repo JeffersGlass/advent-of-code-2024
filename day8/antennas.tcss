@@ -1,4 +1,14 @@
-#position {
+.position {
     margin: 0;
     padding: 0;
+    background: black;
+    color: yellow;
+}
+
+.antenna{
+    background: blue;
+}
+
+.antinode{
+    color: green;
 }

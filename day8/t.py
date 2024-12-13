@@ -1,13 +1,13 @@
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import HorizontalGroup
+from textual.containers import HorizontalGroup, VerticalGroup
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Label, Static, DirectoryTree
 from textual.widget import Widget
 
-from day8part1 import load_data
+from day8part1 import AntennaMap
 
 from pathlib import Path
 from typing import Self, cast
@@ -31,7 +31,7 @@ class PositionLabel(Label):
             self.remove_class("antinode")
 
 class LoadScreen(ModalScreen["Self.LoadMessage"]):
-    BINDINGS = [("escape", "app.pop_screen", "Cancel")]
+    BINDINGS = [("escape", "give_up", "Cancel")]
 
     class LoadMessage(Message):
         def __init__(self, path: Path | str):
@@ -47,6 +47,10 @@ class LoadScreen(ModalScreen["Self.LoadMessage"]):
     def load_file(self, message: DirectoryTree.FileSelected):
         self.dismiss(message)
 
+    def action_give_up(self):
+        self.dismiss(None)
+
+
 
 class AntennaApp(App):
 
@@ -58,13 +62,42 @@ class AntennaApp(App):
     
     def compose(self) -> ComposeResult:
         yield Header()
-        yield PositionLabel("Hello world")
+        yield VerticalGroup()
         yield Footer()
+
+    async def on_mount(self):
+        await self.run_action('file_screen')
 
     def action_file_screen(self) -> None:
         def load_file(message: LoadScreen.LoadMessage | None) -> None:
             if message is None: return
-            cast(PositionLabel, self.query_one("PositionLabel")).update(str(message.path))
+
+            with open(message.path, "r") as f:
+                data = f.readlines()
+            
+            map = AntennaMap(data)
+            _antinodes = map.calc_all_antinodes()
+            assert map.antennas is not None
+
+            display = cast(VerticalGroup, self.query_one("VerticalGroup"))
+            display.remove_children()
+            for line in range(map.num_lines):
+                labels = []
+                for char in range(map.num_chars):
+                    _symbol = "."
+                    _classes = ""
+                    for name, val in map.antennas.items():
+                        if (line, char) in val: 
+                            _symbol = name
+                            _classes += " antenna"
+                            break
+                    if (line, char) in _antinodes:
+                        if _symbol == ".": _symbol = "#"
+                        _classes += " antinode"
+
+                    labels.append(PositionLabel(renderable=str(_symbol), classes=_classes, name=f"({line},{char})"))
+                        
+                display.mount(HorizontalGroup(*labels))
 
         self.push_screen(LoadScreen(), load_file)
     

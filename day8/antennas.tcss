@@ -10,5 +10,5 @@
 }
 
 .antinode{
-    color: green;
+    color: red;
 }

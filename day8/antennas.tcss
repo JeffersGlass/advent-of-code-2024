@@ -1,14 +1,14 @@
-.position {
+PositionLabel {
     margin: 0;
     padding: 0;
     background: black;
-    color: yellow;
+    color: green;
 }
 
-.antenna{
+.antinode {
+    background: red;
+}
+
+.selected {
     background: blue;
-}
-
-.antinode{
-    color: red;
 }

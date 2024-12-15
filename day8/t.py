@@ -12,17 +12,12 @@ from day8part1 import AntennaMap
 from pathlib import Path
 from typing import Self, cast
 class PositionLabel(Label):
+    has_antinode = reactive(False)
+    selected = reactive(False)
+
     def __init__(self, *args, antenna = False, antinode = False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.has_antenna = reactive(antenna)
-        self.has_antinode = reactive(antinode)
-        self.add_class("position")
-
-    def watch_has_antenna(self, has_antenna: bool):
-        if has_antenna:
-            self.add_class("antenna")
-        else:
-            self.remove_class("antenna")
+        self.has_antinode = antinode
 
     def watch_has_antinode(self, has_antinode: bool):
         if has_antinode:
@@ -30,13 +25,19 @@ class PositionLabel(Label):
         else:
             self.remove_class("antinode")
 
+    def watch_selected(self, selected: bool):
+        if selected:
+            self.add_class("selected")
+        else:
+            self.remove_class("selected")
+
 class LoadScreen(ModalScreen["Self.LoadMessage"]):
     BINDINGS = [("escape", "give_up", "Cancel")]
 
     class LoadMessage(Message):
         def __init__(self, path: Path | str):
-            self.path = path
             super().__init__()
+            self.path = path
 
     def compose(self):
         yield Header(name="Select a data file")
@@ -50,15 +51,23 @@ class LoadScreen(ModalScreen["Self.LoadMessage"]):
     def action_give_up(self):
         self.dismiss(None)
 
-
-
 class AntennaApp(App):
-
     CSS_PATH = "antennas.tcss"
     SCREENS = {"load": LoadScreen}
     BINDINGS = [
         ("l", "file_screen", "Select Data File"),
-        ('q', 'quit', 'Quit')]
+        ('q', 'quit', 'Quit'),
+        ('down', 'down_key'),
+        ('up', 'up_key'),
+        ('left', 'left_key'),
+        ('right', 'right_key')
+        ]
+    
+    selected_cell = reactive((-1, -1))
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.map: AntennaMap | None = None
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -75,48 +84,66 @@ class AntennaApp(App):
             with open(message.path, "r") as f:
                 data = f.readlines()
             
-            map = AntennaMap(data)
-            _antinodes = map.calc_all_antinodes()
-            assert map.antennas is not None
+            self.map = AntennaMap(data)
+            _antinodes = self.map.calc_all_antinodes()
+            assert self.map.antennas
+            assert _antinodes
 
             display = cast(VerticalGroup, self.query_one("VerticalGroup"))
             display.remove_children()
-            for line in range(map.num_lines):
+            for line in range(self.map.num_lines):
                 labels = []
-                for char in range(map.num_chars):
+                for char in range(self.map.num_chars):
                     _symbol = "."
-                    _classes = ""
-                    for name, val in map.antennas.items():
+                    _classes: list[str] = []
+                    for name, val in self.map.antennas.items():
                         if (line, char) in val: 
                             _symbol = name
-                            _classes += " antenna"
                             break
                     if (line, char) in _antinodes:
                         if _symbol == ".": _symbol = "#"
-                        _classes += " antinode"
+                        _classes.append("antinode")
 
-                    labels.append(PositionLabel(renderable=str(_symbol), classes=_classes, name=f"({line},{char})"))
+                    labels.append(PositionLabel(renderable=str(_symbol), classes=''.join(_classes), id=f"l{line}_{char}"))
                         
                 display.mount(HorizontalGroup(*labels))
 
         self.push_screen(LoadScreen(), load_file)
-    
-    def compose_demo(self) -> ComposeResult:
-        yield Header()
-        for i in range(2):
-            yield(HorizontalGroup(
-                *[PositionLabel(renderable=str(i), classes="", name=f"({i},{j})") for j in range(12)]  
-            ))
-        for i in range(3):
-            yield(HorizontalGroup(
-                *[PositionLabel(renderable=str(i), classes="antinode", name=f"({i},{j})") for j in range(12)]  
-            ))
-        for i in range(4):
-            yield(HorizontalGroup(
-                *[PositionLabel(renderable=str(i), classes="antenna", name=f"({i},{j})") for j in range(10)]  
-            ))
-        yield Footer()    
 
+    def watch_selected_cell(self, previous: tuple[int, int], next: tuple[int, int]):
+        if not self.map: return
+        if not self.map.inbound(*next): return
+
+        if previous is not None and self.map.inbound(*previous):
+            line, char = previous[0], previous[1]
+            previous_cell = cast(PositionLabel, self.query_exactly_one(f"#l{line}_{char}"))
+            previous_cell.selected = False
+        
+        line, char = next[0], next[1]
+        next_cell = cast(PositionLabel, self.query_exactly_one(f"#l{line}_{char}"))
+        next_cell.selected = True
+
+    def do_arrow_key(self, delta: tuple[int, int]):
+        if not self.map: return
+        if self.selected_cell == (-1, -1):
+            self.selected_cell = (0, 0)
+            return
+        
+        next_line, char = self.selected_cell[0] + delta[0], self.selected_cell[1] + delta[1]
+        if self.map.inbound(next_line, char):
+            self.selected_cell = (next_line, char)
+
+    def action_down_key(self):
+        self.do_arrow_key((1, 0))
+
+    def action_up_key(self):
+        self.do_arrow_key((-1, 0))
+
+    def action_left_key(self):
+        self.do_arrow_key((0, -1))
+
+    def action_right_key(self):
+        self.do_arrow_key((0, 1))
 
 if __name__ == "__main__":
     app = AntennaApp()

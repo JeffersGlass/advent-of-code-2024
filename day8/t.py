@@ -11,6 +11,7 @@ from day8part1 import AntennaMap
 
 from pathlib import Path
 from typing import Self, cast
+from warnings import warn
 class PositionLabel(Label):
     has_antinode = reactive(False)
     selected = reactive(False)
@@ -64,6 +65,7 @@ class AntennaApp(App):
         ]
     
     selected_cell = reactive((-1, -1))
+    debug_msg = reactive("Debug")
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -72,7 +74,11 @@ class AntennaApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield VerticalGroup()
+        yield Label(self.debug_msg, id="debug")
         yield Footer()
+    
+    def debug(self, s: str):
+        self.debug_msg = s            
 
     async def on_mount(self):
         await self.run_action('file_screen')
@@ -122,6 +128,7 @@ class AntennaApp(App):
         line, char = next[0], next[1]
         next_cell = cast(PositionLabel, self.query_exactly_one(f"#l{line}_{char}"))
         next_cell.selected = True
+        self.debug(f"Selected: {self.selected_cell}")
 
     def do_arrow_key(self, delta: tuple[int, int]):
         if not self.map: return

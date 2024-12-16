@@ -1,12 +1,43 @@
 from collections import UserDict
-from collections.abc import Container, Sized, Iterable, Hashable
+from collections.abc import Container, Sized, Iterable, Hashable, MutableSet
 from itertools import chain
 from pathlib import Path
-from typing import Iterator, Self, Generator, Iterable
+from typing import Iterator, Self, Generator, Iterable, Any
+from functools import cached_property
+
+class Side(MutableSet, Hashable):
+    def __init__(self, initial_value: Iterable | None = None):
+        self.segments: set[tuple[float, float]] = set()
+        if initial_value is not None: self.segments = set(initial_value)
+
+    def __contains__(self, x: object) -> bool:
+        return self.segments.__contains__(x)
+    
+    def __len__(self):
+        return len(self.segments)
+    
+    def __iter__(self):
+        return iter(self.segments)
+    
+    def __hash__(self):
+        return id(self)
+    
+    def add(self, value: Any) -> None:
+        return self.segments.add(value)
+    
+    def discard(self, value: Any) -> None:
+        return self.segments.discard(value)
+
+    def matches(self, seg: tuple[float, float]):
+        if seg in self.segments: return True
+        for delta in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if (seg[0] + delta[0], seg[1], + delta[1]) in self.segments: return True
+        return False
 
 class Region(Container, Sized, Iterable, Hashable):
     def __init__(self, label: str, positions: Iterable[tuple[int, int]] | None = None):
         self.label = label
+        self.sides: set[Side] = set()
 
         if positions: self.positions = set(positions)
         else: self.positions = set()
@@ -32,23 +63,30 @@ class Region(Container, Sized, Iterable, Hashable):
     def remove(self, o:tuple[int, int]):
         self.positions.remove(o)
 
-    @property
+    @cached_property
     def area(self) -> int:
         return len(self)
     
-    @property
-    def perimeter(self) -> int:
-        total = 0
-        for p in self.positions:
-            for n in Map.neighbors_unrestricted(p):
-                if n not in self:  
-                    total += 1
+    @cached_property
+    def num_sides(self) -> int:
+        self.sides = set()
+        for seg in self.side_segments():
+            for side in self.sides:
+                if side.matches(seg):
+                    side.add(seg)
+                    break
+            self.sides.add(Side([seg]))
 
-        return total
+        return len(self.sides)
+    
+    def side_segments(self) -> Generator[tuple[float, float]]:
+        for p in self:
+            for n in Map.neighbors_unrestricted(p):
+                if n not in p:
+                    yield ((p[0]+n[0])/2, (p[1]+n[1])/2)
     
     def price_in_map(self, map: "Map") -> int:
-        return self.area * self.perimeter
-
+        return self.area * self.num_sides
 
 class Map(UserDict):
     def __init__(self, max_lines:int, max_chars:int, *args, **kwargs):
@@ -136,7 +174,8 @@ class Map(UserDict):
 
 
 if __name__ == "__main__":
-    myMap = Map.from_path("day12/data.txt")
+    myMap = Map.from_path("day12/datatest.txt")
     print(myMap)
-    print("\n".join(f"{r} Perimeter:{r.perimeter} Price:{r.price_in_map(myMap)}" for r in myMap.regions))
+    for r in myMap.regions:
+        print(f"{r} Num_Sides:{r.num_sides} Price:{r.price_in_map(myMap)}")
     print(f"Total cost: {sum(r.price_in_map(myMap) for r in myMap.regions)}")

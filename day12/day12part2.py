@@ -5,14 +5,23 @@ from operator import itemgetter
 from pathlib import Path
 from typing import Iterator, Self, Generator, Iterable, Any
 from functools import cached_property
+from typing import cast
 
-class Segment:
+class Segment(Hashable):
     def __init__(self, segment: tuple[float, float], regions: tuple["Region", "Region"]):
         self.segment = segment
         self.regions = set(regions)
 
-    def __eq__(self, other: Self):
+    def __eq__(self, other: object) -> bool:
+        if type(other) != Self: return False
+        other = cast(Self, other)
         return self.segment == other.segment and self.regions == other.regions
+    
+    def __hash__(self) -> int:
+        return id(self)
+    
+    def __str__(self) -> str:
+        return f"<Segment: {str(self.segment)} Regions: {",".join(r.label for r in self.regions)}"
     
     def matches(self, other: Self) -> bool:
         if self == other: return True
@@ -38,7 +47,7 @@ class Side(MutableSet, Hashable):
         if borders is not None: self.borders = list(borders)
 
     def __str__(self) -> str:
-        return f"Side: {self.segments}"
+        return f"Side: {",".join(str(s) for s in self.segments)}"
 
     def __contains__(self, x: object) -> bool:
         return self.segments.__contains__(x)
@@ -52,13 +61,15 @@ class Side(MutableSet, Hashable):
     def __hash__(self):
         return hash(sum(id(t) for t in self.segments))
     
-    def add(self, value: Any) -> None:
+    def add(self, value: Segment) -> None:
         return self.segments.add(value)
     
-    def discard(self, value: Any) -> None:
+    def discard(self, value: Segment) -> None:
         return self.segments.discard(value)
     
-    def __eq__(self, other: Self) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not type(other) == Self: return False
+        other = cast(Self, other)
         return self.segments == other.segments
     
     def matches_segment(self, other: Segment) -> bool:
@@ -174,8 +185,9 @@ class Map(UserDict):
     def init_regions(self, data: dict[tuple[int, int], str]) -> defaultdict[tuple[int, int], Region]:
         to_consider: list[tuple[int, int]] = [(0, 0)]
         first_region = Region(data[(0,0)], [(0, 0)])
+        null_region = Region("Null", [])
 
-        regions: defaultdict[tuple[int, int], Region] = defaultdict(None)
+        regions: defaultdict[tuple[int, int], Region ] = defaultdict(lambda: null_region)
         regions[(0, 0)] = first_region
 
 
@@ -229,13 +241,13 @@ class Map(UserDict):
             found_match = False
             for side in self._sides:
                 if side.matches_segment(new_segment) and not found_match:
-                    print(f"Adding segment {seg} to side {side}")
-                    side.add(seg)
+                    print(f"Adding segment {new_segment} to side {side}")
+                    side.add(new_segment)
                     found_match = True
                     break
             if not found_match:
                 print(f"Starting new side with seg {seg}")
-                self._sides.add(Side([seg]))
+                self._sides.add(Side([new_segment]))
         print(f">>>{region.label}: Before dedup there {len(self._sides)=}")
         print("\n".join("\t" + str(s) for s in self._sides))
         
@@ -271,7 +283,7 @@ class Map(UserDict):
 
 
 if __name__ == "__main__":
-    myMap = Map.from_path("day12/dataab.txt")
+    myMap = Map.from_path("day12/dataabc.txt")
     #print(myMap)
     #for r in myMap.regions:
     #    print(f"{r} Num_Sides:{r.num_sides} Price:{r.price_in_map(myMap)}")

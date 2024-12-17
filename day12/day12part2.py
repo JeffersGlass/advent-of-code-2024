@@ -1,15 +1,41 @@
-from collections import UserDict
+from collections import UserDict, deque, defaultdict
 from collections.abc import Container, Sized, Iterable, Hashable, MutableSet
-from itertools import chain
+from itertools import chain, combinations
 from operator import itemgetter
 from pathlib import Path
 from typing import Iterator, Self, Generator, Iterable, Any
 from functools import cached_property
 
+class Segment:
+    def __init__(self, segment: tuple[float, float], regions: tuple["Region", "Region"]):
+        self.segment = segment
+        self.regions = set(regions)
+
+    def __eq__(self, other: Self):
+        return self.segment == other.segment and self.regions == other.regions
+    
+    def matches(self, other: Self) -> bool:
+        if self == other: return True
+        if self.regions != other.regions: return False
+
+        if self.segment[0] == int(self.segment[0]): # Like (1, 2.5)
+            assert self.segment[1] != int(self.segment[1])
+            for delta in -1.0, 1.0:
+                if (self.segment[0] + delta, self.segment[1]) == other.segment: return True
+        elif self.segment[1] == int(self.segment[1]): # (like 0.5, 2)
+            assert self.segment[0] != int(self.segment[0])
+            for delta in -1.0, 1.0:
+                if (self.segment[0], self.segment[1] + delta) == other.segment: return True
+
+        return False
+
 class Side(MutableSet, Hashable):
-    def __init__(self, initial_value: Iterable | None = None):
-        self.segments: set[tuple[float, float]] = set()
+    def __init__(self, initial_value: Iterable | None = None, borders: Iterable["Region"] | None = None):
+        self.segments: set[Segment] = set()
         if initial_value is not None: self.segments = set(initial_value)
+
+        self.borders: list[Region] = list()
+        if borders is not None: self.borders = list(borders)
 
     def __str__(self) -> str:
         return f"Side: {self.segments}"
@@ -24,40 +50,37 @@ class Side(MutableSet, Hashable):
         return iter(self.segments)
     
     def __hash__(self):
-        return id(self)
+        return hash(sum(id(t) for t in self.segments))
     
     def add(self, value: Any) -> None:
         return self.segments.add(value)
     
     def discard(self, value: Any) -> None:
         return self.segments.discard(value)
-
-    def matches(self, seg: tuple[float, float]) -> bool:
-        if seg in self.segments: return True
-        for delta in -1, 1:
-            other = (seg[0], seg[1] + delta)
-            if seg[1] == int(seg[1]) and other in self.segments: return True
-        for delta in -1, 1:
-            other = (seg[0] + delta, seg[1])
-            if seg[0] == int(seg[0]) and other in self.segments: return True
-        return False
+    
+    def __eq__(self, other: Self) -> bool:
+        return self.segments == other.segments
+    
+    def matches_segment(self, other: Segment) -> bool:
+        return any(_self.matches(other) for _self in self.segments)
+    
+    def matches_side(self, other: Self) -> bool:
+        return any(_self.matches(_other) for _other in other.segments for _self in self.segments)
+    
+    def merge(self, other: Self):
+        self.segments |= other.segments
+    
+    @classmethod 
+    def from_merge_of(cls, a: Self, b: Self):
+        return cls(chain(a.segments, b.segments))
     
 def test_side():
-    s = Side([(1, 2.5)])
-    assert s.matches((1,2.5))
-    assert not s.matches((1,3.5))
-    assert s.matches((2, 2.5))
-
-    t = Side([(0.5, 0)])
-    assert t.matches((0.5, 0))
-    assert not t.matches((1.5, 0))
-    assert t.matches((0.5, 1))
-
+    ...
 
 class Region(Container, Sized, Iterable, Hashable):
     def __init__(self, label: str, positions: Iterable[tuple[int, int]] | None = None):
         self.label = label
-        self.sides: set[Side] = set()
+        self._sides: set[Side] = set()
 
         if positions: self.positions = set(positions)
         else: self.positions = set()
@@ -80,59 +103,35 @@ class Region(Container, Sized, Iterable, Hashable):
     def add(self, o:tuple[int, int]):
         self.positions.add(o)
 
-    def remove(self, o:tuple[int, int]):
-        self.positions.remove(o)
+    def discard(self, o:tuple[int, int]):
+        self.positions.discard(o)
 
     @property
     def area(self) -> int:
         return len(self)
     
-    @property
-    def num_sides(self) -> int:
-        self.sides = set()
-        for seg in self.side_segments():
-            found_match = False
-            for side in self.sides:
-                if side.matches(seg):
-                    #print(f"Adding segment {seg} to side {side}")
-                    side.add(seg)
-                    found_match = True
-                    #break
-            if not found_match:
-                #print(f"Starting new side with seg {seg}")
-                self.sides.add(Side([seg]))
-
-        print("\n".join(str(s) for s in self.sides))
-        return len(self.sides)
-    
     def side_segments(self) -> Generator[tuple[float, float]]:
         for p in self:
             for n in Map.neighbors_unrestricted(p):
                 if n not in self:
-                    yield ((p[0]+n[0])/2, (p[1]+n[1])/2)
-    
-    def price_in_map(self, map: "Map") -> int:
-        return self.area * self.num_sides
+                    yield ((p[0]+n[0])/2, (p[1]+n[1])/2,)
     
 def test_region():
-    r = Region("a", [(0, 0)])
-    assert r.area == 1
-    assert r.num_sides == 4
-    s = Region("b", [(0, 0), (0, 1)])
-    assert s.area == 2
-    assert s.num_sides == 4
-    t = Region("c", [(0,0), (0, 1), (1,0)])
-    assert t.area == 3
-    assert t.num_sides == 6
-    
-    
+    ...
+
+def test_map():
+    m = Map.from_path("day12/dataE.txt")
+    assert len(m.regions) == 3
+
+    ...
+  
 
 class Map(UserDict):
     def __init__(self, max_lines:int, max_chars:int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.max_lines = max_lines
         self.max_chars = max_chars
-        self._regions: dict[tuple[int, int], Region] = self.init_regions(self.data)
+        self._regions: defaultdict[tuple[int, int], Region] = self.init_regions(self.data)
         
     
     @classmethod
@@ -172,11 +171,11 @@ class Map(UserDict):
         return set(self._regions.values())
 
     
-    def init_regions(self, data: dict[tuple[int, int], str]) -> dict[tuple[int, int], Region]:
+    def init_regions(self, data: dict[tuple[int, int], str]) -> defaultdict[tuple[int, int], Region]:
         to_consider: list[tuple[int, int]] = [(0, 0)]
         first_region = Region(data[(0,0)], [(0, 0)])
 
-        regions: dict[tuple[int, int], Region] = dict()
+        regions: defaultdict[tuple[int, int], Region] = defaultdict(None)
         regions[(0, 0)] = first_region
 
 
@@ -210,11 +209,70 @@ class Map(UserDict):
                     to_consider.append(n)
 
         return regions
+    
+    def get_regions_from_segment(self, seg: tuple[float, float]) -> tuple[Region, Region]:
+        if seg[0] == int(seg[0]): # (1, 2.5)
+            assert seg[1] != int(seg[1])
+            return (self._regions[(int(seg[0]), int(seg[1]))], self._regions[(int(seg[0]), int(seg[1]+1))])
+        elif seg[1] == int(seg[1]): # (1.5, 3)
+            assert seg[0] != int(seg[0])
+            return (self._regions[(int(seg[0]), int(seg[1]))], self._regions[(int(seg[0])+1, int(seg[1]))])
+        else:
+            raise ValueError(f"{seg} has no integer parts")
+
+    def num_sides(self, region: Region) -> int:
+        assert region in self.regions
+
+        self._sides: set[Side] = set()
+        for seg in region.side_segments():
+            new_segment = Segment(seg, self.get_regions_from_segment(seg))
+            found_match = False
+            for side in self._sides:
+                if side.matches_segment(new_segment) and not found_match:
+                    print(f"Adding segment {seg} to side {side}")
+                    side.add(seg)
+                    found_match = True
+                    break
+            if not found_match:
+                print(f"Starting new side with seg {seg}")
+                self._sides.add(Side([seg]))
+        print(f">>>{region.label}: Before dedup there {len(self._sides)=}")
+        print("\n".join("\t" + str(s) for s in self._sides))
+        
+        #deduplicate
+        queue: deque[Side] = deque(self._sides)
+
+        
+        output = []
+        while (queue):
+            m = queue.popleft()
+            looked_at = 0
+            while True and len(queue) > 0:
+                item = queue.popleft()
+                if m.matches_side(item):
+                    m.merge(item)
+                    looked_at = 0
+                else:
+                    queue.append(item)
+                    looked_at += 1
+                if looked_at >= len(queue): # +1?
+                    break
+            output.append(m)
+        
+        self._sides = set(output)
+        print(f"{region.label}: After dedup {len(self._sides)=}\n\n")
+        print("\n".join("\t" + str(s) for s in sorted(self._sides, key=lambda x: min(s.segment[0] for s in x.segments))))
+        return len(self._sides)
+    
+    def price_in_map(self, region: Region) -> int:
+        assert region in self.regions
+        return region.area * self.num_sides(region)
+    
 
 
 if __name__ == "__main__":
-    myMap = Map.from_path("day12/datatest.txt")
+    myMap = Map.from_path("day12/dataab.txt")
     #print(myMap)
-    for r in myMap.regions:
-        print(f"{r} Num_Sides:{r.num_sides}")# Price:{r.price_in_map(myMap)}")
-    print(f"Total cost: {sum(r.price_in_map(myMap) for r in myMap.regions)}")
+    #for r in myMap.regions:
+    #    print(f"{r} Num_Sides:{r.num_sides} Price:{r.price_in_map(myMap)}")
+    print(f"Total cost: {sum(myMap.price_in_map(r) for r in myMap.regions)}")

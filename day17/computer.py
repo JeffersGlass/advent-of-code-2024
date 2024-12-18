@@ -38,6 +38,33 @@ class Computer:
 
         self.handle_op(ins, operand)
         return True
+    
+    def readable(self) -> str:
+        fstring = "{short: <5}{raw_op: <3}{combo_op: <25}{long: <80}"
+        print(self)
+        print(fstring.format(short="Name", raw_op="Op", combo_op="ComboOp?", long="Long Description"))
+        for ip in range(0, len(self.instr), 2):
+            inst, op = self.instr[ip], self.instr[ip+1]
+            match inst:
+                case 0:
+                    name, combo, long = "adv", str(self.combo_operand(op)), f"Divide A register by {str(self.combo_operand(op))} -> A"
+                case 1:
+                    name, combo, long = "bxl", "", f"B ^ {op} -> B"
+                case 2:
+                    name, combo, long = "bst", str(self.combo_operand(op)), f"{str(self.combo_operand(op))} % 8 -> B"
+                case 3:
+                    name, combo, long = "jnz", "", f"Jump to {op} if A != 0"
+                case 4:
+                    name, combo, long = "bxc", "", "B ^ C -> B"
+                case 5:
+                    name, combo, long = "out", f"{str(self.name_combo_operand(op))}", "Output"
+                case 6:
+                    name, combo, long = "bdv", str(self.name_combo_operand(op)), f"Divide A register by {str(self.name_combo_operand(op))} -> B"
+                case 7:
+                    name, combo, long = "cdv", str(self.name_combo_operand(op)),f"Divide A register by {str(self.name_combo_operand(op))} -> C"
+
+            print(fstring.format(short=name, raw_op=op, combo_op=combo, long=long))
+                        
 
     def handle_op(self, i: int, operand: int):
         logging.debug(f"Inst {i: <2} {operand: <20}")
@@ -85,6 +112,17 @@ class Computer:
         if operand == 6:
             return self.registers["c"]
         raise ValueError(f"{operand} is not a valid combo operand")
+    
+    def name_combo_operand(self, operand: int) -> str:
+        if 0 <= operand <= 3:
+            return f"Literal {operand}"
+        if operand == 4:
+            return "[A Register Value]"
+        if operand == 5:
+            return "[B Register Value]"
+        if operand == 6:
+            return "[C Register Value]"
+        raise ValueError(f"{operand} is not a valid combo operand")
 
     def run(self):
         while self.do_instruction():
@@ -114,24 +152,8 @@ def test_ops():
     assert c.registers["b"] == 44354
 
 def test_comp():
-    c = Computer((0,3,5,4,3,0), (2024, 0, 0))
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
-    c.do_instruction()
+    instr = (0,3,5,4,3,0)
+    c = Computer(instr, (117440, 0, 0))
+    c.run()
     print(c.output)
-    assert False
+    assert c.output == ','.join(str(s) for s in instr)

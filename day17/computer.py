@@ -24,6 +24,8 @@ class Computer:
 
     def __repr__(self) -> str:
         return f"Computer(instr={self.instr}, ip={self.ip}, registers={self.registers}, output={self.output})"
+    
+    readable_format = "{line: <3}{short: <5}{raw_op: <3}{combo_op: <12}{long: <80}"
 
     @property
     def output(self):
@@ -40,31 +42,39 @@ class Computer:
         return True
     
     def readable(self) -> str:
-        fstring = "{short: <5}{raw_op: <3}{combo_op: <25}{long: <80}"
-        print(self)
-        print(fstring.format(short="Name", raw_op="Op", combo_op="ComboOp?", long="Long Description"))
+        result = []
+        result.append(self.readable_format.format(line="##", short="Name", raw_op="Op", combo_op="ComboOp?", long="Long Description"))
         for ip in range(0, len(self.instr), 2):
-            inst, op = self.instr[ip], self.instr[ip+1]
-            match inst:
-                case 0:
-                    name, combo, long = "adv", str(self.combo_operand(op)), f"Divide A register by {str(self.combo_operand(op))} -> A"
-                case 1:
-                    name, combo, long = "bxl", "", f"B ^ {op} -> B"
-                case 2:
-                    name, combo, long = "bst", str(self.combo_operand(op)), f"{str(self.combo_operand(op))} % 8 -> B"
-                case 3:
-                    name, combo, long = "jnz", "", f"Jump to {op} if A != 0"
-                case 4:
-                    name, combo, long = "bxc", "", "B ^ C -> B"
-                case 5:
-                    name, combo, long = "out", f"{str(self.name_combo_operand(op))}", "Output"
-                case 6:
-                    name, combo, long = "bdv", str(self.name_combo_operand(op)), f"Divide A register by {str(self.name_combo_operand(op))} -> B"
-                case 7:
-                    name, combo, long = "cdv", str(self.name_combo_operand(op)),f"Divide A register by {str(self.name_combo_operand(op))} -> C"
+            result.append(self.inst_to_str(ip))
+        
+        return "\n".join(result)
+            
 
-            print(fstring.format(short=name, raw_op=op, combo_op=combo, long=long))
-                        
+            
+
+    def inst_to_str(self, ip) -> str:
+        inst, op = self.instr[ip], self.instr[ip+1]
+        match inst:
+            case 0:
+                name, combo, long = "adv", str(self.combo_operand(op)), f"Divide A register by 2 ** {str(self.combo_operand(op))} -> A"
+            case 1:
+                name, combo, long = "bxl", "", f"B ^ {op} -> B"
+            case 2:
+                name, combo, long = "bst", str(self.combo_operand(op)), f"{str(self.combo_operand(op))} % 8 -> B"
+            case 3:
+                name, combo, long = "jnz", "", f"Jump to {op} if A != 0"
+            case 4:
+                name, combo, long = "bxc", "", "B ^ C -> B"
+            case 5:
+                name, combo, long = "out", f"{str(self.name_combo_operand(op))}", f"Output {str(self.name_combo_operand(op))} % 8"
+            case 6:
+                name, combo, long = "bdv", str(self.name_combo_operand(op)), f"Divide A register by 2 ** {str(self.name_combo_operand(op))} -> B"
+            case 7:
+                name, combo, long = "cdv", str(self.name_combo_operand(op)),f"Divide A register by 2 ** {str(self.name_combo_operand(op))} -> C"
+        
+        return (self.readable_format.format(line=ip, short=name, raw_op=op, combo_op=combo, long=long))
+
+
 
     def handle_op(self, i: int, operand: int):
         logging.debug(f"Inst {i: <2} {operand: <20}")
@@ -117,11 +127,11 @@ class Computer:
         if 0 <= operand <= 3:
             return f"Literal {operand}"
         if operand == 4:
-            return "[A Register Value]"
+            return "[A Value]"
         if operand == 5:
-            return "[B Register Value]"
+            return "[B Value]"
         if operand == 6:
-            return "[C Register Value]"
+            return "[C Value]"
         raise ValueError(f"{operand} is not a valid combo operand")
 
     def run(self):

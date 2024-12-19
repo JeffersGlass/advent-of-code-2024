@@ -54,4 +54,5 @@ if __name__ == "__main__":
     with open("day9/data.txt", "r") as f:
         data = load_data(f.read().strip())
     data = compactify_data(data)
+    print_data(data)
     print(f"{score_data(data)= }")

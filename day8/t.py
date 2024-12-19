@@ -32,7 +32,7 @@ class PositionLabel(Label):
         else:
             self.remove_class("selected")
 
-class LoadScreen(ModalScreen["Self.LoadMessage"]):
+class LoadScreen(ModalScreen):
     BINDINGS = [("escape", "give_up", "Cancel")]
 
     class LoadMessage(Message):
@@ -61,11 +61,12 @@ class AntennaApp(App):
         ('down', 'down_key'),
         ('up', 'up_key'),
         ('left', 'left_key'),
-        ('right', 'right_key')
+        ('right', 'right_key'),
+        ('escape', 'clear_selection')
         ]
     
     selected_cell = reactive((-1, -1))
-    debug_msg = reactive("Debug")
+    debug_msg = reactive("Debug", init=False)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -75,10 +76,14 @@ class AntennaApp(App):
         yield Header()
         yield VerticalGroup()
         yield Label(self.debug_msg, id="debug")
+        yield Label("Result", id="result")
         yield Footer()
     
     def debug(self, s: str):
-        self.debug_msg = s            
+        self.debug_msg = s
+
+    def watch_debug_msg(self, next):
+        cast(Label, self.query_one("#debug")).update(next)            
 
     async def on_mount(self):
         await self.run_action('file_screen')
@@ -94,6 +99,9 @@ class AntennaApp(App):
             _antinodes = self.map.calc_all_antinodes()
             assert self.map.antennas
             assert _antinodes
+            cast(Label, self.query_one("#result")).update(f"{len(_antinodes)=}")
+            self.debug(" ".join(str(s) for s in _antinodes))
+            assert all(type(a[0]) == int and type(a[1]) == int for a in _antinodes)
 
             display = cast(VerticalGroup, self.query_one("VerticalGroup"))
             display.remove_children()
@@ -108,9 +116,10 @@ class AntennaApp(App):
                             break
                     if (line, char) in _antinodes:
                         if _symbol == ".": _symbol = "#"
-                        _classes.append("antinode")
+                    new_label = PositionLabel(renderable=str(_symbol), id=f"l{line}_{char}", antinode=(line, char) in _antinodes)
 
-                    labels.append(PositionLabel(renderable=str(_symbol), classes=''.join(_classes), id=f"l{line}_{char}"))
+                    
+                    labels.append(new_label)
                         
                 display.mount(HorizontalGroup(*labels))
 
@@ -118,17 +127,19 @@ class AntennaApp(App):
 
     def watch_selected_cell(self, previous: tuple[int, int], next: tuple[int, int]):
         if not self.map: return
-        if not self.map.inbound(*next): return
+        if next != (-1, -1) and not self.map.inbound(*next): return
 
         if previous is not None and self.map.inbound(*previous):
             line, char = previous[0], previous[1]
             previous_cell = cast(PositionLabel, self.query_exactly_one(f"#l{line}_{char}"))
             previous_cell.selected = False
         
+        if next == (-1, -1): return
+        
         line, char = next[0], next[1]
         next_cell = cast(PositionLabel, self.query_exactly_one(f"#l{line}_{char}"))
         next_cell.selected = True
-        self.debug(f"Selected: {self.selected_cell}")
+        self.debug(f"Selected: {self.selected_cell} Classes: {", ".join(next_cell.classes)}")
 
     def do_arrow_key(self, delta: tuple[int, int]):
         if not self.map: return
@@ -139,6 +150,9 @@ class AntennaApp(App):
         next_line, char = self.selected_cell[0] + delta[0], self.selected_cell[1] + delta[1]
         if self.map.inbound(next_line, char):
             self.selected_cell = (next_line, char)
+
+    def action_clear_selection(self):
+        self.selected_cell = (-1, -1)
 
     def action_down_key(self):
         self.do_arrow_key((1, 0))

@@ -1,12 +1,14 @@
 from collections import defaultdict
 import itertools
+import string
+from typing import NamedTuple
 
 VISUALIZE = False
 
 if VISUALIZE:
     from rich import print
 
-type Position = tuple[int, int]
+Position = NamedTuple("Position", [('line', int), ('char', int)])
 
 class AntennaMap:
     def __init__(self, data: list[str] | None = None):
@@ -22,10 +24,10 @@ class AntennaMap:
         antennas: dict[str, set[Position]] = defaultdict(set)
         for l, line in enumerate(raw):
             for c, char in enumerate(line.strip()):
-                if char != '.': antennas[char].add((int(l), int(c)))
+                if char.isalnum(): antennas[char].add(Position(int(l), int(c)))
         self.antennas = antennas
         self.num_lines = len(raw)
-        self.num_chars = len(raw[0])
+        self.num_chars = len(raw[0].strip())
         self.initialized = True
 
     def inbound(self, l, c):
@@ -37,10 +39,10 @@ class AntennaMap:
         antenna_set = self.antennas[label]
         # TODO maybe try this with itertools.permutations and one diff instead of combinations and two?g``
         for first, second in itertools.combinations(antenna_set, 2):
-            diff = (second[0] - first[0], second[1] - first[1])
+            diff = Position(second.line - first.line, second.char - first.char)
             options = (
-                    (second[0] + diff[0], second[1] + diff[1]),
-                    (first[0] - diff[0], first[1] - diff[1])
+                    (second.line + diff.line, second.char + diff.char),
+                    (first.line - diff.line, first.char - diff.char)
                     )
             for pos in options:
                 if self.inbound(*pos):
@@ -52,6 +54,7 @@ class AntennaMap:
         if self.antennas is None: raise ValueError("Tried to calculate antinodes before initializing antennas")
         for name in sorted(self.antennas):
             res = self.calc_antinodes(name)
+            print(name, res)
             results |=  res
         return results
 
@@ -72,9 +75,13 @@ class AntennaMap:
             print("")
 
 if __name__ == "__main__":
-    with open("day8/data.txt", "r") as f:
-        antennas, num_lines, num_chars = load_data(f.readlines())
+    
+    with open("day8/dataabc.txt", "r") as f:
+        ant = AntennaMap(data=f.readlines())
 
+    print(f"{ant.num_lines=} {ant.num_chars=}")
+    ant.calc_all_antinodes()
+    exit()
     results = set()
     print(f"{num_lines=}, {num_chars=}")
     for name, locations in sorted(antennas.items()):

@@ -96,7 +96,7 @@ class AntennaApp(App):
                 data = f.readlines()
             
             self.map = AntennaMap(data)
-            _antinodes = self.map.calc_all_antinodes()
+            _antinodes = self.map.calc_all_resonant_nodes()
             assert self.map.antennas
             assert _antinodes
             cast(Label, self.query_one("#result")).update(f"{len(_antinodes)=}")

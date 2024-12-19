@@ -46,7 +46,7 @@ class AntennaMap:
                     )
             for pos in options:
                 if self.inbound(*pos):
-                    results.add(pos)
+                    results.add(Position(*pos))
         return results
 
     def calc_all_antinodes(self) -> set[Position]:
@@ -57,6 +57,34 @@ class AntennaMap:
             print(name, res)
             results |=  res
         return results
+    
+    #part 2
+    def calc_resonant_nodes(self, label: str) -> set[Position]:
+        results = set()
+        if not self.antennas: raise ValueError("Tried to calculate antinodes before initializing antennas")
+        antenna_set = self.antennas[label]
+        # TODO maybe try this with itertools.permutations and one diff instead of combinations and two?g``
+        for first, second in itertools.combinations(antenna_set, 2):
+            diff = Position(second.line - first.line, second.char - first.char)
+            options = itertools.chain(
+                    (Position(second.line + i * diff.line, second.char + 1 * diff.char) for i in range(100)),
+                    (Position(first.line - i * diff.line, first.char - i * diff.char) for i in range(100)),
+                    (first, second)
+                    )
+            for pos in options:
+                if self.inbound(*pos):
+                    results.add(pos)
+        return results
+
+    def calc_all_resonant_nodes(self) -> set[Position]:
+        results = set()
+        if self.antennas is None: raise ValueError("Tried to calculate resonant nodes before initializing antennas")
+        for name in sorted(self.antennas):
+            res = self.calc_resonant_nodes(name)
+            print(f"{name} ", "\n".join((str((r.line, r.char))) for r in res))
+            results |=  res
+        return results
+    
 
     def vis(self, locations: set[Position], res: set[Position], name: str, max_line:int , max_char:int):
         if not VISUALIZE: return
@@ -80,18 +108,6 @@ if __name__ == "__main__":
         ant = AntennaMap(data=f.readlines())
 
     print(f"{ant.num_lines=} {ant.num_chars=}")
-    ant.calc_all_antinodes()
+    ant.calc_all_resonant_nodes()
     exit()
-    results = set()
-    print(f"{num_lines=}, {num_chars=}")
-    for name, locations in sorted(antennas.items()):
-        res = calc_antinodes(locations, num_lines, num_chars)
-        if VISUALIZE:
-            print(f"Antenna {name} has antennas at {sorted(locations)}\n and {len(res)} antinodes at {sorted(res)}")
-            vis(locations, res, name, num_lines, num_chars)
-            input()
-        results |=  res
-
-    print(f"{len(results)= }")
-
     
